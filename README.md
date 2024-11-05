@@ -2,6 +2,8 @@
 
 This project provides a video mixer that facilitates the transmission of WebRTC streams to SRT. The project uses FFmpeg for media processing and is designed for integration with other media production software, like vMix of OBS. It works locally, but you are free to deploy it on your cloud server. It has some lag when switching inputs, i hope to fix it soon.
 
+![Interface](image.png)
+
 ## Preistall
 
 1. Install Node.js LTS from https://nodejs.org/
