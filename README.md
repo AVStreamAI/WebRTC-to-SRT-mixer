@@ -33,6 +33,13 @@ The application will be available at:
 - Frontend: http://localhost:5173
 - Backend: http://localhost:8080 (not needed)
 
+## Running Application
+
+1. Add your WebRTC sources - web camera and microphone
+2. Try switching inputs
+3. Click "Start Streaming" button. It runs SRT output
+4. Check SRT input in vMix, VLC or OBS
+
 ## Testing SRT Output
 
 1. Open vMix
