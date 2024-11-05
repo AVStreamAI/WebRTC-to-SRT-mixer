@@ -1,0 +1,15 @@
+{
+  "name": "srt-streaming",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "frontend": "cd frontend && npm run dev -- --host",
+    "backend": "cd backend && npm run dev",
+    "dev": "concurrently \"npm run frontend\" \"npm run backend\"",
+    "install-all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "setup": "npm install && npm run install-all"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
