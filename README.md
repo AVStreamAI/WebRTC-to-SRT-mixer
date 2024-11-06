@@ -4,6 +4,10 @@ This project provides a video mixer that facilitates the transmission of WebRTC 
 
 ![Interface](image.png)
 
+# Updates
+
+06.11.2024 Seamless switching of WebRTC sources in the SRT output has been added.
+
 ## Preistall
 
 1. Install Node.js LTS from https://nodejs.org/
