@@ -1,8 +1,10 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { VideoPlayer } from './components/VideoPlayer';
 import { StreamControls } from './components/StreamControls';
 import { StreamSettings } from './components/StreamSettings';
 import { SRTClient } from './utils/srtClient';
+import { StreamMixer } from './utils/streamMixer';
+import { logger } from './utils/logger';
 
 export function App() {
   const [activeStream, setActiveStream] = useState(1);
@@ -21,9 +23,45 @@ export function App() {
     4: null
   });
 
-  // Create a single SRTClient instance for the output stream
   const [srtClient] = useState(() => new SRTClient());
   const [isStreaming, setIsStreaming] = useState(false);
+  const streamMixerRef = useRef<StreamMixer | null>(null);
+  const [outputStream, setOutputStream] = useState<MediaStream | null>(null);
+
+  // Initialize StreamMixer
+  useEffect(() => {
+    const initMixer = async () => {
+      try {
+        if (!streamMixerRef.current) {
+          streamMixerRef.current = new StreamMixer();
+          const stream = streamMixerRef.current.getOutputStream();
+          if (stream) {
+            setOutputStream(stream);
+          }
+        }
+      } catch (error) {
+        logger.error('Failed to initialize StreamMixer:', error);
+      }
+    };
+
+    initMixer();
+
+    return () => {
+      const cleanup = async () => {
+        try {
+          if (streamMixerRef.current) {
+            await streamMixerRef.current.stop();
+          }
+          if (srtClient) {
+            await srtClient.stopStreaming();
+          }
+        } catch (error) {
+          logger.error('Cleanup error:', error);
+        }
+      };
+      cleanup();
+    };
+  }, []);
 
   const handleSettingsChange = (streamNumber: number | 'output', newSettings: any) => {
     setStreamSettings((prev) => ({
@@ -32,37 +70,55 @@ export function App() {
     }));
   };
 
-  const handleStreamReady = useCallback((streamNumber: number, stream: MediaStream) => {
-    setInputStreams(prev => ({
-      ...prev,
-      [streamNumber]: stream
-    }));
+  const handleStreamReady = useCallback(async (streamNumber: number, stream: MediaStream) => {
+    try {
+      setInputStreams(prev => ({
+        ...prev,
+        [streamNumber]: stream
+      }));
+
+      if (streamMixerRef.current) {
+        await streamMixerRef.current.addStream(streamNumber, stream);
+        // Update output stream reference after adding new stream
+        const updatedStream = streamMixerRef.current.getOutputStream();
+        if (updatedStream) {
+          setOutputStream(updatedStream);
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to handle stream:', error);
+    }
   }, []);
 
   // Handle stream switching
   useEffect(() => {
-    if (isStreaming && inputStreams[activeStream] && streamSettings.output.host) {
-      srtClient.switchStream(inputStreams[activeStream], streamSettings.output.host);
+    try {
+      if (streamMixerRef.current) {
+        streamMixerRef.current.switchToStream(activeStream);
+      }
+    } catch (error) {
+      logger.error('Failed to switch stream:', error);
     }
-  }, [activeStream, inputStreams, isStreaming, streamSettings.output.host]);
+  }, [activeStream]);
 
-  const handleStartStreaming = useCallback(() => {
-    if (inputStreams[activeStream] && streamSettings.output.host) {
-      srtClient.startStreaming(inputStreams[activeStream], streamSettings.output.host);
-      setIsStreaming(true);
+  const handleStartStreaming = useCallback(async () => {
+    try {
+      if (outputStream && streamSettings.output.host) {
+        await srtClient.startStreaming(outputStream, streamSettings.output.host);
+        setIsStreaming(true);
+      }
+    } catch (error) {
+      logger.error('Failed to start streaming:', error);
     }
-  }, [activeStream, inputStreams, streamSettings.output.host]);
+  }, [outputStream, streamSettings.output.host]);
 
-  const handleStopStreaming = useCallback(() => {
-    srtClient.stopStreaming();
-    setIsStreaming(false);
-  }, []);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      srtClient.disconnect();
-    };
+  const handleStopStreaming = useCallback(async () => {
+    try {
+      await srtClient.stopStreaming();
+      setIsStreaming(false);
+    } catch (error) {
+      logger.error('Failed to stop streaming:', error);
+    }
   }, []);
 
   return (
@@ -95,7 +151,7 @@ export function App() {
             <VideoPlayer
               label="Output"
               settings={streamSettings.output}
-              stream={inputStreams[activeStream]}
+              stream={outputStream}
               isOutput={true}
               isStreaming={isStreaming}
               onStartStreaming={handleStartStreaming}
